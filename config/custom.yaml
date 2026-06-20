@@ -15,12 +15,26 @@ llm:
     key: ${oc.env:OPENAI_API_KEY}
     base_url: ${oc.env:OPENAI_API_BASE}
   generation_kwargs:
-    model: gpt-4o-mini
+    model: deepseek-ai/DeepSeek-V3
 
 source:
   arxiv:
-    category: ["cs.AI","cs.CV","cs.LG","cs.CL"]
+    category: ["cs.CL","cs.LG","cs.SE","cs.CR"]
+    include_cross_list: true
+  openalex:
+    venues_path: assets/LLM_Smart_Contract_Venues_Perfect.xlsx
+    days: 30
+    per_venue_limit: 5
 
 executor:
   debug: ${oc.env:DEBUG,null}
-  source: ['arxiv']
+  source: ['arxiv','openalex']
+  reranker: api
+  skip_sent: true
+  sent_history_path: data/sent_papers.json
+  
+reranker:
+  api:
+    key: ${oc.env:OPENAI_API_KEY}
+    base_url: ${oc.env:OPENAI_API_BASE}
+    model: BAAI/bge-m3

@@ -171,6 +171,7 @@ def make_sample_paper(**overrides) -> Paper:
         authors=["Author A", "Author B", "Author C"],
         abstract="This paper explores a novel approach to widget engineering.",
         url="https://arxiv.org/abs/2026.00001",
+        venue="arXiv (cs.AI)",
         pdf_url="https://arxiv.org/pdf/2026.00001",
         full_text="\\begin{document} Some text. \\end{document}",
         tldr=None,

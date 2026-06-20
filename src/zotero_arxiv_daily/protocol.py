@@ -15,6 +15,7 @@ class Paper:
     authors: list[str]
     abstract: str
     url: str
+    venue: Optional[str] = None
     pdf_url: Optional[str] = None
     full_text: Optional[str] = None
     tldr: Optional[str] = None

@@ -9,6 +9,7 @@ from datetime import datetime
 from .reranker import get_reranker_cls
 from .construct_email import render_email
 from .utils import send_email
+from .sent_history import SentHistory
 from openai import OpenAI
 from tqdm import tqdm
 
@@ -39,6 +40,9 @@ class Executor:
         }
         self.reranker = get_reranker_cls(config.executor.reranker)(config)
         self.openai_client = OpenAI(api_key=config.llm.api.key, base_url=config.llm.api.base_url)
+        self.sent_history = None
+        if config.executor.get("skip_sent", False):
+            self.sent_history = SentHistory(config.executor.get("sent_history_path", "data/sent_papers.json"))
     def fetch_zotero_corpus(self) -> list[CorpusPaper]:
         logger.info("Fetching zotero corpus")
         zot = zotero.Zotero(self.config.zotero.user_id, 'user', self.config.zotero.api_key)
@@ -106,11 +110,23 @@ class Executor:
             logger.info(f"Retrieved {len(papers)} {source} papers")
             all_papers.extend(papers)
         logger.info(f"Total {len(all_papers)} papers retrieved from all sources")
+        if self.sent_history is not None and all_papers:
+            before_count = len(all_papers)
+            all_papers = [paper for paper in all_papers if not self.sent_history.contains(paper)]
+            skipped_count = before_count - len(all_papers)
+            if skipped_count:
+                logger.info(f"Skipped {skipped_count} papers already sent in previous runs")
+
         reranked_papers = []
         if len(all_papers) > 0:
             logger.info("Reranking papers...")
             reranked_papers = self.reranker.rerank(all_papers, corpus)
             reranked_papers = reranked_papers[:self.config.executor.max_paper_num]
+            logger.info("Extracting full text for selected papers...")
+            for p in tqdm(reranked_papers):
+                retriever = self.retrievers.get(p.source)
+                if retriever is not None:
+                    retriever.populate_full_text(p)
             logger.info("Generating TLDR and affiliations...")
             for p in tqdm(reranked_papers):
                 p.generate_tldr(self.openai_client, self.config.llm)
@@ -121,4 +137,6 @@ class Executor:
         logger.info("Sending email...")
         email_content = render_email(reranked_papers)
         send_email(self.config, email_content)
+        if self.sent_history is not None and reranked_papers:
+            self.sent_history.add_many(reranked_papers)
         logger.info("Email sent successfully")

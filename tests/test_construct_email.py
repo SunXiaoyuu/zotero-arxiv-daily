@@ -10,6 +10,7 @@ def test_render_email_with_papers():
     assert "Sample Paper Title" in html
     assert "A great paper." in html
     assert "MIT" in html
+    assert "arXiv (cs.AI)" in html
 
 
 def test_render_email_empty_list():
@@ -64,13 +65,14 @@ def test_get_stars_mid_score():
 
 
 def test_get_block_html_contains_all_fields():
-    html = get_block_html("Title", "Auth", "3.5", "Summary", "http://pdf.url", "MIT")
+    html = get_block_html("Title", "Auth", "3.5", "Summary", "http://pdf.url", "MIT", "ICSE")
     assert "Title" in html
     assert "Auth" in html
     assert "3.5" in html
     assert "Summary" in html
     assert "http://pdf.url" in html
     assert "MIT" in html
+    assert "ICSE" in html
 
 
 def test_get_empty_html():

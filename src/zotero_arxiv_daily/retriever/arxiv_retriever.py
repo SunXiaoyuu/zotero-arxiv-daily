@@ -17,6 +17,7 @@ import requests
 T = TypeVar("T")
 
 DOWNLOAD_TIMEOUT = (10, 60)
+RSS_FETCH_TIMEOUT = (10, 30)
 PDF_EXTRACT_TIMEOUT = 180
 TAR_EXTRACT_TIMEOUT = 180
 
@@ -28,6 +29,50 @@ def _download_file(url: str, path: str) -> None:
             for chunk in response.iter_content(chunk_size=1024 * 1024):
                 if chunk:
                     file.write(chunk)
+
+
+def _fetch_arxiv_rss_feed(query: str) -> Any:
+    url = f"https://rss.arxiv.org/atom/{query}"
+    try:
+        response = requests.get(url, timeout=RSS_FETCH_TIMEOUT)
+        response.raise_for_status()
+    except requests.RequestException as exc:
+        raise RuntimeError(f"Failed to retrieve arXiv RSS feed for query {query}: {exc}") from exc
+
+    feed = feedparser.parse(response.content)
+    title = feed.feed.get("title", "")
+    if "Feed error for query" in title:
+        raise ValueError(f"Invalid ARXIV_QUERY: {query}.")
+    if feed.get("bozo") and not feed.entries:
+        raise RuntimeError(
+            f"Failed to parse arXiv RSS feed for query {query}: "
+            f"{feed.get('bozo_exception', 'unknown parser error')}"
+        )
+    if not feed.feed:
+        raise RuntimeError(f"Failed to parse arXiv RSS feed for query {query}: missing feed metadata")
+    return feed
+
+
+def _as_https(url: str | None) -> str | None:
+    if url is None:
+        return None
+    return url.replace("http://arxiv.org/", "https://arxiv.org/", 1)
+
+
+def _format_arxiv_venue(raw_paper: ArxivResult) -> str:
+    journal_ref = getattr(raw_paper, "journal_ref", None)
+    if journal_ref:
+        return journal_ref
+
+    primary_category = getattr(raw_paper, "primary_category", None)
+    if primary_category:
+        return f"arXiv ({primary_category})"
+
+    categories = getattr(raw_paper, "categories", None) or []
+    if categories:
+        return f"arXiv ({', '.join(categories)})"
+
+    return "arXiv"
 
 
 def _run_in_subprocess(
@@ -118,9 +163,7 @@ class ArxivRetriever(BaseRetriever):
         query = '+'.join(self.config.source.arxiv.category)
         include_cross_list = self.config.source.arxiv.get("include_cross_list", False)
         # Get the latest paper from arxiv rss feed
-        feed = feedparser.parse(f"https://rss.arxiv.org/atom/{query}")
-        if 'Feed error for query' in feed.feed.title:
-            raise Exception(f"Invalid ARXIV_QUERY: {query}.")
+        feed = _fetch_arxiv_rss_feed(query)
         raw_papers = []
         allowed_announce_types = {"new", "cross"} if include_cross_list else {"new"}
         all_paper_ids = [
@@ -161,53 +204,74 @@ class ArxivRetriever(BaseRetriever):
         authors = [a.name for a in raw_paper.authors]
         abstract = raw_paper.summary
         pdf_url = raw_paper.pdf_url
-        full_text = extract_text_from_tar(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_html(raw_paper)
-        if full_text is None:
-            full_text = extract_text_from_pdf(raw_paper)
         return Paper(
             source=self.name,
             title=title,
             authors=authors,
             abstract=abstract,
-            url=raw_paper.entry_id,
-            pdf_url=pdf_url,
-            full_text=full_text,
+            url=_as_https(raw_paper.entry_id),
+            venue=_format_arxiv_venue(raw_paper),
+            pdf_url=_as_https(pdf_url),
+            full_text=None,
         )
 
+    def populate_full_text(self, paper: Paper) -> Paper:
+        if paper.full_text is not None:
+            return paper
+        full_text = extract_text_from_tar(paper)
+        if full_text is None:
+            full_text = extract_text_from_html(paper)
+        if full_text is None:
+            full_text = extract_text_from_pdf(paper)
+        paper.full_text = full_text
+        return paper
 
-def extract_text_from_html(paper: ArxivResult) -> str | None:
-    html_url = paper.entry_id.replace("/abs/", "/html/")
+
+def _get_paper_title(paper: ArxivResult | Paper) -> str:
+    return paper.title
+
+
+def _get_paper_abs_url(paper: ArxivResult | Paper) -> str:
+    return _as_https(getattr(paper, "entry_id", None) or paper.url)
+
+
+def _get_paper_source_url(paper: ArxivResult | Paper) -> str | None:
+    if hasattr(paper, "source_url"):
+        return _as_https(paper.source_url())
+    return _get_paper_abs_url(paper).replace("/abs/", "/e-print/")
+
+
+def extract_text_from_html(paper: ArxivResult | Paper) -> str | None:
+    html_url = _get_paper_abs_url(paper).replace("/abs/", "/html/")
     try:
         return _extract_text_from_html_worker(html_url)
     except Exception as exc:
-        logger.warning(f"HTML extraction failed for {paper.title}: {exc}")
+        logger.warning(f"HTML extraction failed for {_get_paper_title(paper)}: {exc}")
         return None
 
 
-def extract_text_from_pdf(paper: ArxivResult) -> str | None:
+def extract_text_from_pdf(paper: ArxivResult | Paper) -> str | None:
     if paper.pdf_url is None:
-        logger.warning(f"No PDF URL available for {paper.title}")
+        logger.warning(f"No PDF URL available for {_get_paper_title(paper)}")
         return None
     return _run_with_hard_timeout(
         _extract_text_from_pdf_worker,
         (paper.pdf_url,),
         timeout=PDF_EXTRACT_TIMEOUT,
         operation="PDF extraction",
-        paper_title=paper.title,
+        paper_title=_get_paper_title(paper),
     )
 
 
-def extract_text_from_tar(paper: ArxivResult) -> str | None:
-    source_url = paper.source_url()
+def extract_text_from_tar(paper: ArxivResult | Paper) -> str | None:
+    source_url = _get_paper_source_url(paper)
     if source_url is None:
-        logger.warning(f"No source URL available for {paper.title}")
+        logger.warning(f"No source URL available for {_get_paper_title(paper)}")
         return None
     return _run_with_hard_timeout(
         _extract_text_from_tar_worker,
-        (source_url, paper.entry_id, paper.title),
+        (source_url, _get_paper_abs_url(paper), _get_paper_title(paper)),
         timeout=TAR_EXTRACT_TIMEOUT,
         operation="Tar extraction",
-        paper_title=paper.title,
+        paper_title=_get_paper_title(paper),
     )

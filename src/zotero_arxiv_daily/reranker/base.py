@@ -7,11 +7,18 @@ class BaseReranker(ABC):
     def __init__(self, config:DictConfig):
         self.config = config
 
+    @staticmethod
+    def _ranking_text(paper: Paper | CorpusPaper) -> str:
+        return f"{paper.title}\n{paper.abstract}".strip()
+
     def rerank(self, candidates:list[Paper], corpus:list[CorpusPaper]) -> list[Paper]:
         corpus = sorted(corpus,key=lambda x: x.added_date,reverse=True)
         time_decay_weight = 1 / (1 + np.log10(np.arange(len(corpus)) + 1))
         time_decay_weight: np.ndarray = time_decay_weight / time_decay_weight.sum()
-        sim = self.get_similarity_score([c.abstract for c in candidates], [c.abstract for c in corpus])
+        sim = self.get_similarity_score(
+            [self._ranking_text(c) for c in candidates],
+            [self._ranking_text(c) for c in corpus],
+        )
         assert sim.shape == (len(candidates), len(corpus))
         scores = (sim * time_decay_weight).sum(axis=1) * 10 # [n_candidate]
         for s,c in zip(scores,candidates):

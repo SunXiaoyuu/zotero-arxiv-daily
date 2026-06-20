@@ -25,3 +25,4 @@ def test_medrxiv_pdf_url(config):
     })
     assert "medrxiv.org" in paper.pdf_url
     assert paper.source == "medrxiv"
+    assert paper.venue == "medrxiv (unknown category)"

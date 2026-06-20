@@ -56,6 +56,7 @@ class BiorxivRetriever(BaseRetriever):
             authors=authors,
             abstract=abstract,
             url=pdf_url,
+            venue=f"{self.server} ({raw_paper.get('category', 'unknown category')})",
             pdf_url=pdf_url,
             full_text=full_text
         )

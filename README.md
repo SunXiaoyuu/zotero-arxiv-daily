@@ -176,7 +176,11 @@ Supported by [uv](https://github.com/astral-sh/uv), this workflow can easily run
 # export ZOTERO_ID=xxxx
 # ...
 cd zotero-arxiv-daily
-uv run main.py
+uv run src/zotero_arxiv_daily/main.py
+```
+When `executor.reranker: api` is used, the default install skips the heavyweight local reranker dependencies (`torch`, `sentence-transformers`, and `peft`). To use `executor.reranker: local`, install the optional local reranker dependencies:
+```bash
+uv run --extra local src/zotero_arxiv_daily/main.py
 ```
 
 ## 🚀 Sync with the latest version

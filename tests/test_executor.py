@@ -209,6 +209,64 @@ def test_run_end_to_end(config, monkeypatch):
     assert "text/html" in email_body
 
 
+def test_run_populates_full_text_only_after_top_n(config, monkeypatch):
+    """Full text extraction happens only for papers kept after reranking."""
+    import smtplib
+
+    from omegaconf import open_dict
+
+    from tests.canned_responses import (
+        make_sample_paper,
+        make_stub_openai_client,
+        make_stub_smtp,
+        make_stub_zotero_client,
+    )
+
+    with open_dict(config):
+        config.executor.source = ["arxiv"]
+        config.executor.reranker = "api"
+        config.executor.max_paper_num = 2
+        config.executor.send_empty = False
+
+    stub_zot = make_stub_zotero_client()
+    monkeypatch.setattr("zotero_arxiv_daily.executor.zotero.Zotero", lambda *a, **kw: stub_zot)
+
+    stub_client = make_stub_openai_client()
+    monkeypatch.setattr("zotero_arxiv_daily.executor.OpenAI", lambda **kw: stub_client)
+    monkeypatch.setattr("zotero_arxiv_daily.reranker.api.OpenAI", lambda **kw: stub_client)
+
+    retrieved = [
+        make_sample_paper(title="Top Paper 1", full_text=None, score=None),
+        make_sample_paper(title="Top Paper 2", full_text=None, score=None),
+        make_sample_paper(title="Dropped Paper", full_text=None, score=None),
+    ]
+
+    import zotero_arxiv_daily.retriever.arxiv_retriever  # noqa: F401
+
+    from zotero_arxiv_daily.retriever.base import registered_retrievers
+
+    monkeypatch.setattr(registered_retrievers["arxiv"], "retrieve_papers", lambda self: retrieved)
+
+    populated_titles = []
+
+    def populate_full_text(self, paper):
+        populated_titles.append(paper.title)
+        paper.full_text = "selected full text"
+        return paper
+
+    monkeypatch.setattr(registered_retrievers["arxiv"], "populate_full_text", populate_full_text)
+
+    sent = []
+    monkeypatch.setattr(smtplib, "SMTP", make_stub_smtp(sent))
+    monkeypatch.setattr("zotero_arxiv_daily.retriever.base.sleep", lambda _: None)
+
+    executor = Executor(config)
+    executor.run()
+
+    assert populated_titles == ["Top Paper 1", "Top Paper 2"]
+    assert len(sent) == 1
+
+
 def test_run_no_papers_send_empty_false(config, monkeypatch):
     """When no papers are found and send_empty=false, no email is sent."""
     import smtplib
