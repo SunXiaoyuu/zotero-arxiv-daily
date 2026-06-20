@@ -4,6 +4,7 @@ from ..protocol import Paper
 from loguru import logger
 from typing import Any
 from time import sleep
+from datetime import date
 
 @register_retriever("biorxiv")
 class BiorxivRetriever(BaseRetriever):
@@ -57,6 +58,16 @@ class BiorxivRetriever(BaseRetriever):
             abstract=abstract,
             url=pdf_url,
             venue=f"{self.server} ({raw_paper.get('category', 'unknown category')})",
+            published_date=_parse_date(raw_paper.get('date')),
             pdf_url=pdf_url,
             full_text=full_text
         )
+
+
+def _parse_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None

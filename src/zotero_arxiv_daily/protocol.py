@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from typing import Optional, TypeVar
-from datetime import datetime
+from datetime import date, datetime
 import re
 import tiktoken
 from openai import OpenAI
@@ -16,6 +16,7 @@ class Paper:
     abstract: str
     url: str
     venue: Optional[str] = None
+    published_date: Optional[date] = None
     pdf_url: Optional[str] = None
     full_text: Optional[str] = None
     tldr: Optional[str] = None

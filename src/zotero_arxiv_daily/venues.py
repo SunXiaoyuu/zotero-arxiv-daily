@@ -20,6 +20,7 @@ class Venue:
     rank: str | None = None
     ccf: str | None = None
     url: str | None = None
+    openalex_source_id: str | None = None
 
 
 def resolve_project_path(path: str | Path) -> Path:
@@ -110,6 +111,7 @@ def load_venues_from_excel(path: str | Path) -> list[Venue]:
                     rank=rank,
                     ccf=ccf,
                     url=_get_cell(row, 4),
+                    openalex_source_id=_get_cell(row, _column_for_header(header, "openalex_source_id", 5)),
                 )
             )
 
@@ -131,6 +133,13 @@ def _get_cell(row: list[str], index: int) -> str | None:
         return None
     value = str(row[index] or "").strip()
     return value or None
+
+
+def _column_for_header(header: list[str], name: str, default: int) -> int:
+    for index, value in enumerate(header):
+        if value.strip().lower() == name.lower():
+            return index
+    return default
 
 
 def _read_xlsx_sheets(path: Path) -> list[tuple[str, list[list[str]]]]:

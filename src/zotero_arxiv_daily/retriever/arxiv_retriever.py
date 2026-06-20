@@ -4,6 +4,7 @@ from arxiv import Result as ArxivResult
 from ..protocol import Paper
 from ..utils import extract_markdown_from_pdf, extract_tex_code_from_tar
 from tempfile import TemporaryDirectory
+from datetime import date, datetime
 import feedparser
 from tqdm import tqdm
 import multiprocessing
@@ -73,6 +74,33 @@ def _format_arxiv_venue(raw_paper: ArxivResult) -> str:
         return f"arXiv ({', '.join(categories)})"
 
     return "arXiv"
+
+
+def _published_date_from_arxiv(raw_paper: ArxivResult) -> date | None:
+    published = getattr(raw_paper, "published", None)
+    if isinstance(published, datetime):
+        return published.date()
+    if isinstance(published, date):
+        return published
+    if isinstance(published, str):
+        try:
+            return datetime.fromisoformat(published.replace("Z", "+00:00")).date()
+        except ValueError:
+            return None
+    return None
+
+
+def _parse_date(value: Any) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value))
+    except ValueError:
+        return None
 
 
 def _run_in_subprocess(
@@ -197,6 +225,13 @@ class ArxivRetriever(BaseRetriever):
                 sleep(3)
         bar.close()
 
+        from_publication_date = _parse_date(self.config.source.arxiv.get("from_publication_date"))
+        if from_publication_date is not None:
+            raw_papers = [
+                paper for paper in raw_papers
+                if (_published_date_from_arxiv(paper) or date.min) >= from_publication_date
+            ]
+
         return raw_papers
 
     def convert_to_paper(self, raw_paper: ArxivResult) -> Paper:
@@ -211,6 +246,7 @@ class ArxivRetriever(BaseRetriever):
             abstract=abstract,
             url=_as_https(raw_paper.entry_id),
             venue=_format_arxiv_venue(raw_paper),
+            published_date=_published_date_from_arxiv(raw_paper),
             pdf_url=_as_https(pdf_url),
             full_text=None,
         )

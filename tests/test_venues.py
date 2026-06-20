@@ -4,7 +4,7 @@ from zotero_arxiv_daily.venues import clean_venue_name, load_venues_from_excel, 
 
 
 def test_clean_venue_name_removes_added_marker():
-    assert clean_venue_name("International Conference on Learning Representations (ICLR) - *新增*") == (
+    assert clean_venue_name("International Conference on Learning Representations (ICLR) - *new*") == (
         "International Conference on Learning Representations (ICLR)"
     )
 
@@ -28,6 +28,7 @@ def test_load_venues_from_excel(tmp_path):
     assert venues[0].kind == "journal"
     assert venues[0].name == "IEEE Transactions on Software Engineering (TSE)"
     assert venues[0].ccf == "CCF A"
+    assert venues[0].openalex_source_id == "S8351582"
     assert venues[1].kind == "conference"
     assert venues[1].name == "International Conference on Software Engineering (ICSE)"
 
@@ -50,8 +51,8 @@ def _write_minimal_venue_xlsx(path):
 """
     sheet1 = _sheet_xml(
         [
-            ["Field", "Journal Name", "Rank", "CCF", "URL"],
-            ["Software Engineering", "IEEE Transactions on Software Engineering (TSE)", "Q1", "CCF A", "https://example.com/tse"],
+            ["Field", "Journal Name", "Rank", "CCF", "URL", "openalex_source_id"],
+            ["Software Engineering", "IEEE Transactions on Software Engineering (TSE)", "Q1", "CCF A", "https://example.com/tse", "S8351582"],
         ]
     )
     sheet2 = _sheet_xml(

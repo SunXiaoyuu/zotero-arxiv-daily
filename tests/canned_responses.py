@@ -1,6 +1,6 @@
 """Shared stub factories for tests. No unittest.mock anywhere."""
 
-from datetime import datetime
+from datetime import date, datetime
 from types import SimpleNamespace
 
 from zotero_arxiv_daily.protocol import CorpusPaper, Paper
@@ -172,6 +172,7 @@ def make_sample_paper(**overrides) -> Paper:
         abstract="This paper explores a novel approach to widget engineering.",
         url="https://arxiv.org/abs/2026.00001",
         venue="arXiv (cs.AI)",
+        published_date=date(2026, 1, 2),
         pdf_url="https://arxiv.org/pdf/2026.00001",
         full_text="\\begin{document} Some text. \\end{document}",
         tldr=None,

@@ -8,6 +8,7 @@ source:
   arxiv:
     category: null # The categories of target arxiv papers. Find the abbr of your research area from [here](https://arxiv.org/category_taxonomy). Example: ["cs.AI","cs.CV","cs.LG","cs.CL"]
     include_cross_list: false # Whether to include arXiv cross-list papers in subscribed categories. Example: true
+    from_publication_date: null # Optional fixed start date. Example: 2024-01-01
   biorxiv:
     category: null # The categories of target biorxiv papers. Find categories from [here](https://www.biorxiv.org/). Example: ["biochemistry","animal behavior and cognition"]
   medrxiv:
@@ -15,7 +16,7 @@ source:
   openalex:
     venues_path: null # Path to an Excel file containing journal/conference venues. Example: assets/LLM_Smart_Contract_Venues_Perfect.xlsx
     days: 30 # Retrieve papers published in the latest N days from the configured venues. Example: 30
-    from_publication_date: null # Optional fixed start date. Example: 2026-06-01
+    from_publication_date: null # Optional fixed start date. Example: 2024-01-01
     per_venue_limit: 5 # Maximum number of recent papers to fetch per venue. Example: 5
     max_venues: null # Optional limit for debugging. Example: 5
     cache_path: data/openalex_sources_cache.json # Local cache mapping venue names to OpenAlex source IDs.

@@ -125,11 +125,20 @@ class OpenAlexRetriever(BaseRetriever):
             abstract=abstract,
             url=url,
             venue=_format_venue(venue, source_display_name),
+            published_date=_parse_openalex_date(work.get("publication_date")),
             pdf_url=pdf_url,
             full_text=None,
         )
 
     def _resolve_source(self, venue: Venue) -> dict[str, str] | None:
+        if venue.openalex_source_id:
+            source_id = venue.openalex_source_id.rsplit("/", 1)[-1]
+            return {
+                "id": source_id,
+                "display_name": venue.name,
+                "type": venue.kind,
+            }
+
         cached = self.source_cache.get(venue.name)
         if cached is not None:
             return cached if cached.get("id") else None
@@ -234,6 +243,15 @@ def _format_venue(venue: Venue, source_display_name: str | None) -> str:
     if venue.rank:
         details.append(venue.rank)
     return f"{display_name} ({'; '.join(details)})"
+
+
+def _parse_openalex_date(value: str | None) -> date | None:
+    if not value:
+        return None
+    try:
+        return date.fromisoformat(value)
+    except ValueError:
+        return None
 
 
 def _best_source_match(query: str, results: list[dict[str, Any]]) -> dict[str, Any]:

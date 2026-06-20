@@ -15,6 +15,7 @@ def test_openalex_convert_to_paper_sets_venue_and_abstract():
         "work": {
             "id": "https://openalex.org/W1",
             "title": "LLMs for Smart Contract Generation",
+            "publication_date": "2025-05-06",
             "abstract_inverted_index": {"Large": [0], "language": [1], "models": [2]},
             "authorships": [
                 {"author": {"display_name": "Alice"}},
@@ -34,4 +35,18 @@ def test_openalex_convert_to_paper_sets_venue_and_abstract():
     assert paper.abstract == "Large language models"
     assert paper.authors == ["Alice", "Bob"]
     assert paper.venue == "International Conference on Software Engineering (Conference; CCF A; Top)"
+    assert paper.published_date.isoformat() == "2025-05-06"
     assert paper.pdf_url == "https://example.com/paper.pdf"
+
+
+def test_openalex_resolve_source_uses_explicit_source_id():
+    retriever = OpenAlexRetriever.__new__(OpenAlexRetriever)
+    venue = Venue(kind="journal", name="Computers (MDPI)", openalex_source_id="https://openalex.org/S4210228075")
+
+    source = retriever._resolve_source(venue)
+
+    assert source == {
+        "id": "S4210228075",
+        "display_name": "Computers (MDPI)",
+        "type": "journal",
+    }

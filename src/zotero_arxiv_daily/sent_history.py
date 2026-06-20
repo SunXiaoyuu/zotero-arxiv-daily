@@ -39,6 +39,7 @@ class SentHistory:
                     "source": paper.source,
                     "url": paper.url,
                     "venue": paper.venue,
+                    "published_date": paper.published_date.isoformat() if paper.published_date else None,
                     "sent_at": now,
                 }
             )

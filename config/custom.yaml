@@ -21,15 +21,17 @@ source:
   arxiv:
     category: ["cs.CL","cs.LG","cs.SE","cs.CR"]
     include_cross_list: true
+    from_publication_date: 2024-01-01
   openalex:
     venues_path: assets/LLM_Smart_Contract_Venues_Perfect.xlsx
-    days: 30
+    from_publication_date: 2024-01-01
     per_venue_limit: 5
 
 executor:
   debug: ${oc.env:DEBUG,null}
   source: ['arxiv','openalex']
   reranker: api
+  max_paper_num: 10
   skip_sent: true
   sent_history_path: data/sent_papers.json
   
