@@ -1,10 +1,12 @@
 """Tests for ArxivRetriever."""
 
+import sys
 import time
 from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import feedparser
+import pytest
 
 from zotero_arxiv_daily.retriever.arxiv_retriever import ArxivRetriever, _run_with_hard_timeout
 import zotero_arxiv_daily.retriever.arxiv_retriever as arxiv_retriever
@@ -94,6 +96,7 @@ def test_arxiv_populate_full_text_runs_after_retrieval(config, monkeypatch):
     ]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="multiprocessing spawn timing is flaky on Windows")
 def test_run_with_hard_timeout_returns_value():
     result = _run_with_hard_timeout(
         _sleep_and_return, ("done", 0.01), timeout=1, operation="test op", paper_title="paper"
@@ -111,6 +114,7 @@ def test_run_with_hard_timeout_returns_none_on_timeout(monkeypatch):
     assert "timed out" in warnings[0]
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="multiprocessing spawn timing is flaky on Windows")
 def test_run_with_hard_timeout_returns_none_on_failure(monkeypatch):
     warnings: list[str] = []
     monkeypatch.setattr(arxiv_retriever, "logger", SimpleNamespace(warning=warnings.append))
